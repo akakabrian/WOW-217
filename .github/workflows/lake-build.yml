@@ -16,7 +16,7 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-22.04
+    runs-on: macos-14
     timeout-minutes: 90
     steps:
       - name: Checkout
@@ -55,7 +55,7 @@ jobs:
             echo "build_exit_code=${status}"
             date -u +"finished_utc=%Y-%m-%dT%H:%M:%SZ"
           } > ci/status.txt
-          sha256sum ci/lake-build.log ci/status.txt > ci/SHA256SUMS
+          shasum -a 256 ci/lake-build.log ci/status.txt > ci/SHA256SUMS
           echo "exit_status=$status" >> "$GITHUB_OUTPUT"
 
       - name: Upload build transcript
