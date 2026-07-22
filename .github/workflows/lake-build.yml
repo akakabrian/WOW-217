@@ -1,0 +1,76 @@
+name: Lake Build
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - 'ci/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Lean
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf \
+            https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh \
+            | sh -s -- -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: Resolve dependencies
+        run: lake update
+
+      - name: Download Mathlib cache
+        run: lake exe cache get
+
+      - name: Run lake build
+        id: build
+        shell: bash
+        run: |
+          mkdir -p ci
+          set +e
+          {
+            echo '$ lake build'
+            lake build
+          } > ci/lake-build.log 2>&1
+          status=$?
+          set -e
+
+          {
+            echo "commit=${GITHUB_SHA}"
+            echo "build_exit_code=${status}"
+            date -u +"finished_utc=%Y-%m-%dT%H:%M:%SZ"
+          } > ci/status.txt
+          sha256sum ci/lake-build.log ci/status.txt > ci/SHA256SUMS
+          echo "exit_status=$status" >> "$GITHUB_OUTPUT"
+
+      - name: Upload build transcript
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wow217-lake-build-${{ github.run_id }}
+          path: ci/
+
+      - name: Publish transcript
+        if: always() && github.event_name == 'push'
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -f ci/lake-build.log ci/status.txt ci/SHA256SUMS
+          git commit -m "ci: publish lake build transcript [skip ci]" || true
+          git push origin HEAD:main
+
+      - name: Fail if lake build failed
+        if: steps.build.outputs.exit_status != '0'
+        run: exit 1
