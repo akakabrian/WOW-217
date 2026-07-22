@@ -9,6 +9,10 @@ on:
   pull_request:
     branches:
       - main
+  pull_request_target:
+    branches:
+      - main
+    types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
 
 permissions:
@@ -19,9 +23,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
-      - name: Checkout
+      - name: Checkout main
         uses: actions/checkout@v4
         with:
+          ref: main
           fetch-depth: 0
 
       - name: Install Lean
@@ -51,7 +56,7 @@ jobs:
           set -e
 
           {
-            echo "commit=${GITHUB_SHA}"
+            echo "commit=$(git rev-parse HEAD)"
             echo "build_exit_code=${status}"
             date -u +"finished_utc=%Y-%m-%dT%H:%M:%SZ"
           } > ci/status.txt
