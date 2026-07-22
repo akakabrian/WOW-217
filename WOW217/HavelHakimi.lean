@@ -105,4 +105,66 @@ theorem head_and_tail_reciprocal_le_after_decrement (d : ℕ) (l : List ℕ)
   rw [sum_decrementGain_eq] at hgain
   linarith
 
+/-- Reciprocal-degree sum is additive under list append. -/
+@[category test, AMS 5]
+theorem degreeReciprocalSum_append (l₁ l₂ : List ℕ) :
+    degreeReciprocalSum (l₁ ++ l₂) = degreeReciprocalSum l₁ + degreeReciprocalSum l₂ := by
+  simp [degreeReciprocalSum]
+
+/-- Reciprocal-degree sum is invariant under list permutation. -/
+@[category test, AMS 5]
+theorem degreeReciprocalSum_eq_of_perm {l₁ l₂ : List ℕ} (h : l₁.Perm l₂) :
+    degreeReciprocalSum l₁ = degreeReciprocalSum l₂ := by
+  induction h with
+  | nil => rfl
+  | cons x h ih => simp [degreeReciprocalSum, ih]
+  | swap x y l => simp [degreeReciprocalSum, add_comm]
+  | trans h₁ h₂ ih₁ ih₂ => exact ih₁.trans ih₂
+
+/-- On a positive list, reciprocal weight after predecessor mapping is the sum of `1/x`. -/
+@[category test, AMS 5]
+theorem degreeReciprocalSum_map_pred (l : List ℕ) (hpos : ∀ x ∈ l, 1 ≤ x) :
+    degreeReciprocalSum (l.map fun x => x - 1) =
+      (l.map fun x => (1 : ℝ) / (x : ℝ)).sum := by
+  induction l with
+  | nil => simp [degreeReciprocalSum]
+  | cons x xs ih =>
+      have hx : 1 ≤ x := hpos x (by simp)
+      have htail : ∀ y ∈ xs, 1 ≤ y := by
+        intro y hy
+        exact hpos y (by simp [hy])
+      have hxcast : (((x - 1 : ℕ) : ℝ) + 1) = (x : ℝ) := by
+        exact_mod_cast Nat.sub_add_cancel hx
+      simp [degreeReciprocalSum, hxcast, ih htail]
+
+/-- One admissible positive Havel--Hakimi step cannot decrease reciprocal-degree sum. -/
+@[category test, AMS 5]
+theorem degreeReciprocalSum_le_havelHakimiStep (d : ℕ) (rest : List ℕ)
+    (hd : 1 ≤ d) (hlen : d ≤ rest.length)
+    (hpos : ∀ x ∈ rest.take d, 1 ≤ x)
+    (hle : ∀ x ∈ rest.take d, x ≤ d) :
+    degreeReciprocalSum (d :: rest) ≤ degreeReciprocalSum (havelHakimiStep (d :: rest)) := by
+  have htakeLen : (rest.take d).length = d := by
+    simp [List.length_take, Nat.min_eq_left hlen]
+  have hcore :=
+    head_and_tail_reciprocal_le_after_decrement d (rest.take d) hd htakeLen hpos hle
+  have hdec := degreeReciprocalSum_map_pred (rest.take d) hpos
+  let u : List ℕ := (rest.take d).map (fun x => x - 1) ++ rest.drop d
+  have hperm : (u.mergeSort fun a b => a ≥ b).Perm u := List.mergeSort_perm u _
+  calc
+    degreeReciprocalSum (d :: rest) =
+        (1 : ℝ) / ((d : ℝ) + 1) + degreeReciprocalSum (rest.take d) +
+          degreeReciprocalSum (rest.drop d) := by
+            rw [← List.take_append_drop d rest]
+            simp [degreeReciprocalSum, add_assoc]
+    _ ≤ (rest.take d |>.map fun x => (1 : ℝ) / (x : ℝ)).sum +
+          degreeReciprocalSum (rest.drop d) := by
+            linarith
+    _ = degreeReciprocalSum u := by
+          rw [degreeReciprocalSum_append, hdec]
+    _ = degreeReciprocalSum (u.mergeSort fun a b => a ≥ b) :=
+          (degreeReciprocalSum_eq_of_perm hperm).symm
+    _ = degreeReciprocalSum (havelHakimiStep (d :: rest)) := by
+          simp [havelHakimiStep, List.splitAt_eq, u]
+
 end WrittenOnTheWallII.GraphConjecture217
